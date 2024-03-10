@@ -4,28 +4,36 @@
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
 #include "SD.h"
-#include "auxiliars.h"
+#include "SPIFFS.h"
 #include "painlessMesh.h"
 #include "meshManager.h"
+#include "auxiliars.h"
+#include "routesHandlers.h"
 
 #define MESH_PREFIX "Soluforce"
 #define MESH_PASSWORD "soluforcesenha"
 #define MESH_PORT 5555
+
+fs::FS filesystem = SPIFFS;
 
 IPAddress myIP(0, 0, 0, 0);
 IPAddress myAPIP(0, 0, 0, 0);
 
 AsyncWebServer server(80);
 
-/* Scheduler userScheduler; */
 extern painlessMesh mesh;
+
+String actionerMessage;
+JsonDocument globalMessages;
+JsonObject actioner = globalMessages["actioner"].to<JsonObject>();
 
 void setup()
 {
   Serial.begin(115200);
-
-  if (!initSD())
+  if (!initSPIFFS())
     return;
+  /* if (!initSD())
+    return; */
 
   mesh.setDebugMsgTypes(ERROR | STARTUP | CONNECTION);
   mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT);
@@ -40,61 +48,39 @@ void setup()
   Serial.println("My AP IP is " + myAPIP.toString());
 
   // Ruta inicial
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/index.html", String(), false); });
+  server.on("/", HTTP_GET, handlerServeIndexHTML);
 
   // Ruta dispositives/:nodeId/:typeModule
-  server.on("^\\/dispositives\\/([0-9]+)\\/([a-zA-Z0-9]+)$", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/index.html", String(), false); });
+  server.on("^\\/dispositives\\/([0-9]+)\\/([a-zA-Z0-9]+)$", HTTP_GET, handlerServeIndexHTML);
 
   // Ruta /dispositives
-  server.on("/dispositives", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/index.html", String(), false); });
+  server.on("/dispositives", HTTP_GET, handlerServeIndexHTML);
 
-  // Ruta dinamica /dispositives/:nodeID/addModule
-  server.on("^\\/addModule\\/([0-9]+)$", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/index.html", String(), false); });
+  // Ruta dinamica /dispositives/:nodeID/addModule para agregar um modulo a um determinado nó.
+  server.on("^\\/addModule\\/([0-9]+)$", HTTP_GET, handlerServeIndexHTML);
 
-  // Ruta dinamica /dispositive/nodeID
-  server.on("^\\/dispositive\\/([0-9]+)$", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(SD, "/index.html", String(), false); });
+  // Ruta dinamica /dispositive/nodeID para ver os modulos por nós
+  server.on("^\\/dispositive\\/([0-9]+)$", HTTP_GET, handlerServeIndexHTML);
 
   // Petição GET desde o cliente á ruta dinamica /getDispositives/<NodeID> para obter a lista de nodos conetados
-  server.on("/getDispositives", HTTP_GET, [](AsyncWebServerRequest *request)
-            { std::list<uint32_t> nodes = mesh.getNodeList(false);
-              JsonDocument  doc;
-              JsonArray jsonArray = doc.to<JsonArray>();
-              for (const auto &node : nodes)
-              {
-                jsonArray.add(node);
-              };
-              String nodeString=doc.as<String>(); 
-              
-              
-              request->send(200,"application/json", nodeString); });
+  server.on("/getDispositives", HTTP_GET, handlerGetDispositives);
 
-  // Petição GET desde o cliente á ruta dinamica /getDispositiveInfo/<NodeID> para obter a lista de modulos do nodo
-  server.on("^\\/getDispositiveInfo\\/([0-9]+)$", HTTP_GET, [](AsyncWebServerRequest *request)
-            { String pathToDispositive="/"+ request->pathArg(0) + ".json";
-              String res=sendJsonResponseFromFile(pathToDispositive);
-              request->send(200,"application/json", res); });
+  // Petição GET desde o cliente á ruta dinamica /getDispositiveInfo/<NodeID> para obter a lista de modulos do nó
+  server.on("^\\/getDispositiveInfo\\/([0-9]+)$", HTTP_GET, handlerGetDispositiveInfo);
 
-  // Gerenciando rutas que recebem json como request
-  AsyncCallbackJsonWebHandler *
-      handler = new AsyncCallbackJsonWebHandler("/addModule", [](AsyncWebServerRequest *request, JsonVariant &json)
-                                                { 
-    JsonObject jsonObj = json.as<JsonObject>();
-    String nodeID = jsonObj["nodeId"];
-    jsonObj.remove("nodeId");
-    String res = writeIntoFileJson(jsonObj, nodeID);
-    request->send(200, "application/json", res); });
+  // Obtendo informação dos modulos
+  server.on("^\\/getModuleInfo\\/([0-9]+)\\/([a-zA-Z0-9]+)$", HTTP_GET, handlerGetModuleInfo);
 
-  server.addHandler(handler);
+  // Apagando modulo do nó
+  server.on("/deleteModule", HTTP_DELETE, handlerDeleteModule);
+
+  server.addHandler(handlerAddModule);
+  server.addHandler(handlerSetModuleStatus);
   // Control de arquivos estaticos
-  server.serveStatic("/", SD, "/");
-  server.serveStatic("/addModule", SD, "/");
-  server.serveStatic("/dispositives", SD, "/");
-  server.serveStatic("/dispositive", SD, "/");
+  server.serveStatic("/", filesystem, "/");
+  server.serveStatic("/addModule", filesystem, "/");
+  server.serveStatic("/dispositives", filesystem, "/");
+  server.serveStatic("/dispositive", filesystem, "/");
 
   // Iniciando o servidor
   server.begin();

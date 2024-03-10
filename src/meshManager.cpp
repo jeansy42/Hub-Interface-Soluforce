@@ -3,17 +3,40 @@
 #include "auxiliars.h"
 
 painlessMesh mesh;
+extern String actionerMessage;
+extern JsonDocument globalMessages;
+extern JsonObject actioner;
+extern fs::FS filesystem;
+
+// Callbacks
+
 void receivedCallback(uint32_t from, String &msg)
 {
-    Serial.printf("startHere: Received from %u msg=%s\n", from, msg.c_str());
+    JsonDocument doc;
+    String nodeId = String(from);
+    DeserializationError error = deserializeJson(doc, msg);
+    if (error)
+    {
+        Serial.println("Falho ao deserializar a mensagem");
+    }
+    else
+    {
+        if (doc.containsKey("actioner"))
+        {
+            int status = doc["actioner"]["status"];
+            Serial.printf("Recebendo msg from %u, status: %d\n", from, status);
+            actioner[nodeId] = status;
+        }
+    }
 }
 
 void newConnectionCallback(uint32_t nodeId)
 {
     Serial.printf("--> startHere: New Connection, nodeId = %u\n", nodeId);
-    char nodeIdStr[18];
-    sprintf(nodeIdStr, "/%u.json", nodeId);
-    createNewFile(nodeIdStr);
+    String nodeIdStr = String(nodeId);
+
+    createNewFile("/" + nodeIdStr + ".json", &filesystem);
+    mesh.sendSingle(nodeId, "root");
 }
 
 void changedConnectionCallback()
@@ -24,4 +47,12 @@ void changedConnectionCallback()
 void nodeTimeAdjustedCallback(int32_t offset)
 {
     Serial.printf("Adjusted time %u. Offset = %d\n", mesh.getNodeTime(), offset);
+}
+
+// Reuseful functions
+void sendingConfigurationToNode(String nodeId)
+{
+    Serial.printf("Mandando configuração ao node %s", nodeId);
+    uint32_t nodeIdInt = strtoul(nodeId.c_str(), NULL, 10);
+    mesh.sendSingle(nodeIdInt, sendJsonResponseFromFile("/" + nodeId + ".json", &filesystem));
 }

@@ -5,6 +5,10 @@
 		},
 		{
 			"path": "../../../Soluforce Projetos Frontend/Router-Arduino-Test"
+		},
+		{
+			"name": "Nock Code",
+			"path": "../Nock Code"
 		}
 	],
 	"settings": {
