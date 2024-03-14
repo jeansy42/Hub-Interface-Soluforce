@@ -21,7 +21,7 @@ IPAddress myAPIP(0, 0, 0, 0);
 
 AsyncWebServer server(80);
 
-extern painlessMesh mesh;
+painlessMesh mesh;
 
 String actionerMessage;
 JsonDocument globalMessages;
@@ -32,6 +32,11 @@ void setup()
   Serial.begin(115200);
   if (!initSPIFFS())
     return;
+  /* bool status = SPIFFS.format();
+  if (status)
+    Serial.println("SPIFFS formatado corretamente");
+  else
+    return; */
   /* if (!initSD())
     return; */
 
@@ -73,6 +78,9 @@ void setup()
 
   // Apagando modulo do nó
   server.on("/deleteModule", HTTP_DELETE, handlerDeleteModule);
+
+  // Obtendo a informação de um modulo de determinado nó
+  server.on("/getModuleFromDispositiveById", HTTP_GET, handlerGetModuleFromDispositiveById);
 
   server.addHandler(handlerAddModule);
   server.addHandler(handlerSetModuleStatus);

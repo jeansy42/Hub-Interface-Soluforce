@@ -1,9 +1,9 @@
 #include "ESPAsyncWebServer.h"
-#include "SD.h"
 #include "painlessMesh.h"
 #include "AsyncJson.h"
 #include "auxiliars.h"
-
+#include "meshManager.h"
+#include "structures.h"
 
 extern painlessMesh mesh;
 extern JsonDocument globalMessages;
@@ -11,7 +11,7 @@ extern fs::FS filesystem;
 
 void handlerServeIndexHTML(AsyncWebServerRequest *request)
 {
-    request->send(SD, "/index.html", String(), false);
+    request->send(filesystem, "/index.html", String(), false);
 }
 void handlerGetDispositives(AsyncWebServerRequest *request)
 {
@@ -36,7 +36,7 @@ void handlerDeleteModule(AsyncWebServerRequest *request)
 {
     if (!(request->hasParam("moduleId") && request->hasParam("nodeId")))
     {
-        request->send(400, "application/json", "{\"error\":\"Bad request, query param moduleId and nodeId are required.\"}");
+        request->send(400, "application/json", "{\"status\":\"error\",\"msg\":\"Bad request, query param moduleId and nodeId are required.\"}");
     }
     else
     {
@@ -53,11 +53,29 @@ void handlerGetModuleInfo(AsyncWebServerRequest *request)
     if (globalMessages.containsKey(module) && globalMessages[module].containsKey(nodeId))
     {
         String res = globalMessages[module][nodeId].as<String>();
-        request->send(200, "text/plain", res);
+        JsonDocument docRes;
+        docRes["status"] = res;
+        docRes["msg"] = "Informação do modulo recebida con sucesso.";
+        request->send(200, "application/json", docRes.as<String>());
     }
     else
     {
-        request->send(404, "text/plain", "Error: Not found");
+        request->send(404, "application/json", "{\"status\":\"error\",\"msg\":\"Module não achado\"}");
+    }
+}
+
+void handlerGetModuleFromDispositiveById(AsyncWebServerRequest *request)
+{
+    if (request->hasParam("moduleId") && request->hasParam("nodeId"))
+    {
+        String moduleId = request->getParam("moduleId")->value();
+        String nodeId = request->getParam("nodeId")->value();
+        String res = getModuleFromDispositiveById(moduleId, nodeId, &filesystem);
+        request->send(200, "application/json", res);
+    }
+    else
+    {
+        request->send(400, "application/json", "{\"error\":\"Bad request, query param moduleId and nodeId are required.\"}");
     }
 }
 
@@ -76,15 +94,19 @@ AsyncCallbackJsonWebHandler *handlerSetModuleStatus = new AsyncCallbackJsonWebHa
       int action = jsonObj["action"];
       if(mesh.isConnected(nodeId)){
         JsonDocument doc;
-        String res;
+        String msg;
         JsonObject typeObj= doc[type].to<JsonObject>();
         typeObj["setStatus"]=action;
-        serializeJson(doc,res);
-        mesh.sendSingle(nodeId, res);
-        request->send(200, "application/json", res);
+        serializeJson(doc,msg);
+        bool state=mesh.sendSingle(nodeId, msg);
+        if(state){request->send(200, "application/json", "{\"status\":\"success\",\"msg\":\"Mensagem enviado ao nó com sucesso\"}");}
+        else
+        {
+            request->send(503, "application/json", "{\"status\":\"error\",\"msg\":\"Erro ao enviar o mensagem ao nó\"}");
+        }
       }else
       {
-        request->send(503, "application/json", "{\"error\":\"Node is not connected.\"}");
+          request->send(503, "application/json", "{\"status\":\"error\",\"msg\":\"O nó solicitado não está conetado à red mesh\"}");
       };
       } });
 
@@ -95,12 +117,14 @@ AsyncCallbackJsonWebHandler *handlerAddModule = new AsyncCallbackJsonWebHandler(
     {
         String nodeId = jsonObj["nodeId"];
         jsonObj.remove("nodeId");
+        isConfigNode result;
         String res;
 
             if (request->method() == HTTP_POST)
         {
-            res = writeIntoFileJson(jsonObj, nodeId,&filesystem);
-            request->send(200, "application/json", res);
+            result = writeIntoFileJson(jsonObj, nodeId,&filesystem);
+            if(result.isOk)sendingConfigurationToNode(nodeId);
+            request->send(200, "application/json", result.res);
 
         }else if(request->method()==HTTP_PUT)
         {

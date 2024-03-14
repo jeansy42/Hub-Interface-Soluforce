@@ -2,7 +2,7 @@
 #include "painlessMesh.h"
 #include "auxiliars.h"
 
-painlessMesh mesh;
+extern painlessMesh mesh;
 extern String actionerMessage;
 extern JsonDocument globalMessages;
 extern JsonObject actioner;
@@ -54,5 +54,10 @@ void sendingConfigurationToNode(String nodeId)
 {
     Serial.printf("Mandando configuração ao node %s", nodeId);
     uint32_t nodeIdInt = strtoul(nodeId.c_str(), NULL, 10);
-    mesh.sendSingle(nodeIdInt, sendJsonResponseFromFile("/" + nodeId + ".json", &filesystem));
+    String res = sendJsonResponseFromFile("/" + nodeId + ".json", &filesystem);
+    bool isOk = mesh.sendSingle(nodeIdInt, res);
+    if (isOk)
+        Serial.println("Message sended successfully");
+    else
+        Serial.println("Some error ocurred");
 }

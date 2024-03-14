@@ -4,10 +4,11 @@
 #include "SPIFFS.h"
 #include "FS.h"
 #include "meshManager.h"
+#include "structures.h"
 
 bool initSPIFFS()
 {
-    if (!SPIFFS.begin(true))
+    if (!SPIFFS.begin())
     {
         Serial.println("An Error has occurred while mounting SPIFFS");
         return false;
@@ -26,7 +27,7 @@ String generateUUID()
 }
 bool initSD()
 {
-    if (!SD.begin(5))
+    if (!SD.begin())
     {
         Serial.println("Card Mount Failed");
         return false;
@@ -132,9 +133,11 @@ String sendJsonResponseFromFile(String path, fs::FS *filesystem)
     }
 }
 
-String writeIntoFileJson(JsonObject json, String nodeId, fs::FS *filesystem)
+isConfigNode writeIntoFileJson(JsonObject json, String nodeId, fs::FS *filesystem)
 {
+    isConfigNode result;
     JsonDocument docRes;
+    bool isOk = false;
     String resString;
     String path = "/" + nodeId + ".json";
     if (!filesystem->exists(path))
@@ -163,16 +166,25 @@ String writeIntoFileJson(JsonObject json, String nodeId, fs::FS *filesystem)
                 obj[kv.key().c_str()] = kv.value();
             };
             file = filesystem->open(path, "w");
-            serializeJson(doc, file);
-            docRes["status"] = "ok";
-            docRes["msg"] = "Success to append information to the file.";
-            // Enviando configuração ao no
-            sendingConfigurationToNode(nodeId);
+            if (!file)
+            {
+                docRes["status"] = "error";
+                docRes["msg"] = " Failed to open the file.";
+            }
+            else
+            {
+                serializeJson(doc, file);
+                docRes["status"] = "ok";
+                docRes["msg"] = "Success to append information to the file.";
+                file.close();
+                isOk = true;
+            }
         };
-        file.close();
     }
     serializeJson(docRes, resString);
-    return resString;
+    result.isOk = isOk;
+    result.res = resString;
+    return result;
 }
 
 String deleteModule(String moduleId, String nodeId, fs::FS *filesystem)
@@ -319,6 +331,57 @@ String updateModule(String moduleId, String nodeId, JsonObject json, fs::FS *fil
                     docRes["status"] = "error";
                     docRes["msg"] = "Module does not exist.";
                 }
+            }
+        }
+    }
+    serializeJson(docRes, resString);
+    return resString;
+}
+
+String getModuleFromDispositiveById(String moduleId, String nodeId, fs::FS *filesystem)
+{
+    String path = "/" + nodeId + ".json";
+    JsonDocument docRes;
+    String resString;
+    String jsonModule;
+
+    if (!filesystem->exists(path))
+    {
+        docRes["status"] = "error";
+        docRes["msg"] = "The file does not exist";
+    }
+    else
+    {
+        File file = filesystem->open(path, "r");
+        if (!file)
+        {
+            docRes["status"] = "error";
+            docRes["msg"] = "Failed to open the file.";
+        }
+        else
+        {
+            JsonDocument doc;
+            DeserializationError error = deserializeJson(doc, file);
+            file.close();
+            if (error)
+            {
+                docRes["status"] = "error";
+                docRes["msg"] = "Failed to deserialize the file.";
+            }
+            else
+            {
+                JsonArray array = doc["config"].as<JsonArray>();
+                for (int i = 0; i < array.size(); i++)
+                {
+                    JsonObject obj = array[i].as<JsonObject>();
+                    if (obj["id"].as<String>() == moduleId)
+                    {
+                        jsonModule = array[i].as<String>();
+                        return jsonModule;
+                    }
+                }
+                docRes["status"] = "error";
+                docRes["msg"] = "Module does not exist.";
             }
         }
     }

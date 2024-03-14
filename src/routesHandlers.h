@@ -9,6 +9,7 @@ void handlerGetDispositives(AsyncWebServerRequest *request);
 void handlerGetDispositiveInfo(AsyncWebServerRequest *request);
 void handlerGetModuleInfo(AsyncWebServerRequest *request);
 void handlerDeleteModule(AsyncWebServerRequest *request);
+void handlerGetModuleFromDispositiveById(AsyncWebServerRequest *request);
 
 // Gerenciadores de rutas que receben json
 extern AsyncCallbackJsonWebHandler *handlerSetModuleStatus;
