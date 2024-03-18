@@ -1,11 +1,15 @@
-#include <WString.h>
+#include <Arduino.h>
+#include <set>
+#include <cstdint>
 #ifndef STRUCTURES_H
 #define STRUCTURES_H
 
-struct isConfigNode
+namespace UpdateNodes
 {
-    String res;
-    bool isOk;
-};
+    extern std::set<uint32_t> nodesToUpdate;
+    void addNodesToUpdate(const String nodeId);
+    void removeNodeToUpdate(const uint32_t nodeId);
+    bool needsToUpdate();
+}
 
 #endif

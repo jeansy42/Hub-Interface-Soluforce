@@ -3,12 +3,12 @@
 #include "AsyncTCP.h"
 #include "AsyncJson.h"
 #include "ArduinoJson.h"
-#include "SD.h"
 #include "SPIFFS.h"
 #include "painlessMesh.h"
 #include "meshManager.h"
 #include "auxiliars.h"
 #include "routesHandlers.h"
+#include "tasksManager.h"
 
 #define MESH_PREFIX "Soluforce"
 #define MESH_PASSWORD "soluforcesenha"
@@ -20,8 +20,10 @@ IPAddress myIP(0, 0, 0, 0);
 IPAddress myAPIP(0, 0, 0, 0);
 
 AsyncWebServer server(80);
-
 painlessMesh mesh;
+Scheduler hubScheduler;
+
+Task taskVerifyNodesToUpdate(TASK_SECOND * 4, TASK_FOREVER, &verifyNodesToUpdate);
 
 String actionerMessage;
 JsonDocument globalMessages;
@@ -30,24 +32,28 @@ JsonObject actioner = globalMessages["actioner"].to<JsonObject>();
 void setup()
 {
   Serial.begin(115200);
-  if (!initSPIFFS())
+  if (!SPIFFS.begin())
+  {
+    Serial.println("An Error has occurred while mounting SPIFFS");
     return;
+  }
   /* bool status = SPIFFS.format();
   if (status)
     Serial.println("SPIFFS formatado corretamente");
   else
     return; */
-  /* if (!initSD())
-    return; */
 
   mesh.setDebugMsgTypes(ERROR | STARTUP | CONNECTION);
-  mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT);
+  mesh.init(MESH_PREFIX, MESH_PASSWORD, &hubScheduler, MESH_PORT);
   mesh.onReceive(&receivedCallback);
   mesh.onNewConnection(&newConnectionCallback);
   mesh.onChangedConnections(&changedConnectionCallback);
   mesh.onNodeTimeAdjusted(&nodeTimeAdjustedCallback);
   mesh.setRoot(true); // Estabelecendo o Hub como root
   mesh.setContainsRoot(true);
+
+  hubScheduler.addTask(taskVerifyNodesToUpdate);
+  taskVerifyNodesToUpdate.enable();
 
   myAPIP = IPAddress(mesh.getAPIP());
   Serial.println("My AP IP is " + myAPIP.toString());

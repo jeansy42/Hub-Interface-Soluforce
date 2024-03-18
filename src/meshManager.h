@@ -10,6 +10,6 @@ void changedConnectionCallback();
 void nodeTimeAdjustedCallback(int32_t offset);
 
 // Reuseful functions
-void sendingConfigurationToNode(String nodeId);
+void sendingConfigurationToNode(uint32_t nodeId);
 
 #endif

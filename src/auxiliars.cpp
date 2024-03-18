@@ -1,16 +1,16 @@
 #include "SD.h"
 #include "WiFi.h"
 #include "ArduinoJson.h"
-#include "SPIFFS.h"
+#include "LittleFS.h"
 #include "FS.h"
 #include "meshManager.h"
 #include "structures.h"
 
-bool initSPIFFS()
+bool initLittleFS()
 {
-    if (!SPIFFS.begin())
+    if (!LittleFS.begin())
     {
-        Serial.println("An Error has occurred while mounting SPIFFS");
+        Serial.println("An Error has occurred while mounting LittleFS");
         return false;
     }
     return true;
@@ -133,12 +133,9 @@ String sendJsonResponseFromFile(String path, fs::FS *filesystem)
     }
 }
 
-isConfigNode writeIntoFileJson(JsonObject json, String nodeId, fs::FS *filesystem)
+String writeIntoFileJson(JsonObject json, String nodeId, fs::FS *filesystem)
 {
-    isConfigNode result;
     JsonDocument docRes;
-    bool isOk = false;
-    String resString;
     String path = "/" + nodeId + ".json";
     if (!filesystem->exists(path))
     {
@@ -177,14 +174,12 @@ isConfigNode writeIntoFileJson(JsonObject json, String nodeId, fs::FS *filesyste
                 docRes["status"] = "ok";
                 docRes["msg"] = "Success to append information to the file.";
                 file.close();
-                isOk = true;
+                UpdateNodes::addNodesToUpdate(nodeId);
             }
         };
     }
-    serializeJson(docRes, resString);
-    result.isOk = isOk;
-    result.res = resString;
-    return result;
+
+    return docRes.as<String>();
 }
 
 String deleteModule(String moduleId, String nodeId, fs::FS *filesystem)
@@ -239,8 +234,7 @@ String deleteModule(String moduleId, String nodeId, fs::FS *filesystem)
                         file.close();
                         docRes["status"] = "success";
                         docRes["msg"] = "Module deleted successfully.";
-                        // Enviando configuração ao no
-                        sendingConfigurationToNode(nodeId);
+                        UpdateNodes::addNodesToUpdate(nodeId);
                     }
                     else
                     {
@@ -317,8 +311,7 @@ String updateModule(String moduleId, String nodeId, JsonObject json, fs::FS *fil
                         file.close();
                         docRes["status"] = "success";
                         docRes["msg"] = "Module updated successfully.";
-                        // Enviando configuração ao no
-                        sendingConfigurationToNode(nodeId);
+                        UpdateNodes::addNodesToUpdate(nodeId);
                     }
                     else
                     {

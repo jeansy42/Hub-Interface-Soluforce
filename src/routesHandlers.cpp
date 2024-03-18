@@ -117,14 +117,13 @@ AsyncCallbackJsonWebHandler *handlerAddModule = new AsyncCallbackJsonWebHandler(
     {
         String nodeId = jsonObj["nodeId"];
         jsonObj.remove("nodeId");
-        isConfigNode result;
         String res;
 
             if (request->method() == HTTP_POST)
         {
-            result = writeIntoFileJson(jsonObj, nodeId,&filesystem);
-            if(result.isOk)sendingConfigurationToNode(nodeId);
-            request->send(200, "application/json", result.res);
+            res = writeIntoFileJson(jsonObj, nodeId,&filesystem);
+            
+            request->send(200, "application/json", res);
 
         }else if(request->method()==HTTP_PUT)
         {

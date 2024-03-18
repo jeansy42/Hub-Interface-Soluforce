@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include "painlessMesh.h"
 #include "auxiliars.h"
+#include "structures.h"
 
 extern painlessMesh mesh;
 extern String actionerMessage;
@@ -12,20 +13,28 @@ extern fs::FS filesystem;
 
 void receivedCallback(uint32_t from, String &msg)
 {
-    JsonDocument doc;
-    String nodeId = String(from);
-    DeserializationError error = deserializeJson(doc, msg);
-    if (error)
+    if (msg == "configOk")
     {
-        Serial.println("Falho ao deserializar a mensagem");
+        Serial.printf("-->Removendo no %u da lista de atualizacao", from);
+        UpdateNodes::removeNodeToUpdate(from);
     }
     else
     {
-        if (doc.containsKey("actioner"))
+        JsonDocument doc;
+        String nodeId = String(from);
+        DeserializationError error = deserializeJson(doc, msg);
+        if (error)
         {
-            int status = doc["actioner"]["status"];
-            Serial.printf("Recebendo msg from %u, status: %d\n", from, status);
-            actioner[nodeId] = status;
+            Serial.println("Falho ao deserializar a mensagem");
+        }
+        else
+        {
+            if (doc.containsKey("actioner"))
+            {
+                int status = doc["actioner"]["status"];
+                Serial.printf("Recebendo msg from %u, status: %d\n", from, status);
+                actioner[nodeId] = status;
+            }
         }
     }
 }
@@ -50,12 +59,11 @@ void nodeTimeAdjustedCallback(int32_t offset)
 }
 
 // Reuseful functions
-void sendingConfigurationToNode(String nodeId)
+void sendingConfigurationToNode(uint32_t nodeId)
 {
-    Serial.printf("Mandando configuração ao node %s", nodeId);
-    uint32_t nodeIdInt = strtoul(nodeId.c_str(), NULL, 10);
-    String res = sendJsonResponseFromFile("/" + nodeId + ".json", &filesystem);
-    bool isOk = mesh.sendSingle(nodeIdInt, res);
+    Serial.printf("Mandando configuração ao node %u", nodeId);
+    String res = sendJsonResponseFromFile("/" + String(nodeId) + ".json", &filesystem);
+    bool isOk = mesh.sendSingle(nodeId, res);
     if (isOk)
         Serial.println("Message sended successfully");
     else
