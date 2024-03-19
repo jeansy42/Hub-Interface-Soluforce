@@ -10,9 +10,11 @@ void handlerGetDispositiveInfo(AsyncWebServerRequest *request);
 void handlerGetModuleInfo(AsyncWebServerRequest *request);
 void handlerDeleteModule(AsyncWebServerRequest *request);
 void handlerGetModuleFromDispositiveById(AsyncWebServerRequest *request);
+void handlerIsConfigRedMesh(AsyncWebServerRequest *request);
 
 // Gerenciadores de rutas que receben json
 extern AsyncCallbackJsonWebHandler *handlerSetModuleStatus;
 extern AsyncCallbackJsonWebHandler *handlerAddModule;
+extern AsyncCallbackJsonWebHandler *handlerConfigRedMesh;
 
 #endif

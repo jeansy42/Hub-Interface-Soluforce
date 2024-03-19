@@ -6,6 +6,12 @@
 #include "meshManager.h"
 #include "structures.h"
 
+extern fs::FS filesystem;
+extern String ssid;
+extern String password;
+extern uint16_t port;
+extern bool shouldReinitHub;
+
 bool initLittleFS()
 {
     if (!LittleFS.begin())
@@ -79,7 +85,7 @@ void createNewFile(String path, fs::FS *filesystem)
     if (!filesystem->exists(path))
     {
 
-        Serial.printf("Criando arquivo: %s\n", path);
+        Serial.printf("Criando arquivo: %s\n", path.c_str());
         File file = filesystem->open(path, "w");
         if (!file)
         {
@@ -91,13 +97,92 @@ void createNewFile(String path, fs::FS *filesystem)
         deserializeJson(doc, file);
         doc["config"].to<JsonArray>();
         serializeJson(doc, file);
-        Serial.printf("%s criado com sucesso \n", path);
+        Serial.printf("%s criado com sucesso \n", path.c_str());
         file.close();
     }
     else
     {
         Serial.printf("O arquivo %s já existe\n", path);
     }
+}
+void createConfigMeshIfNotExists(fs::FS *filesystem)
+{
+    const char *path = "/configMesh.json";
+    if (!filesystem->exists(path))
+    {
+        Serial.printf("Criando arquivo: %s\n", path);
+        File file = filesystem->open(path, "w");
+        if (!file)
+        {
+            Serial.printf("Erro ao criar o arquivo %s\n", path);
+            return;
+        }
+        JsonDocument doc;
+        doc["ssid"] = "";
+        doc["password"] = "";
+        doc["port"] = "";
+        serializeJson(doc, file);
+        Serial.printf("%s criado com sucesso \n", path);
+        file.close();
+    }
+    else
+        Serial.printf("O arquivo %s ja existe\n", path);
+}
+String configRedMesh(JsonObject obj)
+{
+    const char *path = "/configMesh.json";
+    JsonDocument docRes;
+    createConfigMeshIfNotExists(&filesystem);
+    File file = filesystem.open(path, "w");
+    if (!file)
+    {
+        Serial.printf("Erro ao abrir o arquivo %s\n", path);
+        docRes["status"] = "error";
+        docRes["msg"] = "Erro ao abrir o arquivo";
+    }
+    else
+    {
+        JsonDocument doc;
+        doc["ssid"] = obj["ssid"];
+        doc["password"] = obj["password"];
+        doc["port"] = obj["port"];
+        serializeJson(doc, file);
+        file.close();
+        docRes["status"] = "success";
+        docRes["msg"] = "Configuracao da red mesh feita com sucesso";
+        Serial.println("Reiniciando dispositivo....");
+        shouldReinitHub = true;
+    }
+    return docRes.as<String>();
+}
+bool isRedMeshConfig()
+{
+    const char *path = "/configMesh.json";
+    createConfigMeshIfNotExists(&filesystem);
+    File file = filesystem.open(path, "r");
+    if (!file)
+    {
+        Serial.printf("Erro ao abrir o arquivo %s\n", path);
+        return false;
+    }
+    JsonDocument doc;
+    DeserializationError error = deserializeJson(doc, file);
+    file.close();
+    if (error)
+    {
+        Serial.printf("Erro ao deserializar o arquivo %s\n", path);
+        return false;
+    }
+    if (doc["ssid"].as<String>() == "" || doc["password"].as<String>() == "" || doc["port"].as<String>() == "")
+    {
+        Serial.println("Configuracao da red mesh nao achada \n");
+        return false;
+    }
+    ssid = doc["ssid"].as<String>();
+    password = doc["password"].as<String>();
+    port = doc["port"].as<uint16_t>();
+    Serial.println("Configuracao da red mesh estabelecida com sucesso \n");
+    return true;
 }
 String sendJsonResponseFromFile(String path, fs::FS *filesystem)
 {

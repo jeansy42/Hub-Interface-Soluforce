@@ -9,6 +9,12 @@ extern painlessMesh mesh;
 extern JsonDocument globalMessages;
 extern fs::FS filesystem;
 
+extern String ssid;
+extern String password;
+extern uint16_t port;
+
+extern bool redMeshConfigState;
+
 void handlerServeIndexHTML(AsyncWebServerRequest *request)
 {
     request->send(filesystem, "/index.html", String(), false);
@@ -79,6 +85,18 @@ void handlerGetModuleFromDispositiveById(AsyncWebServerRequest *request)
     }
 }
 
+void handlerIsConfigRedMesh(AsyncWebServerRequest *request)
+{
+    if (redMeshConfigState)
+    {
+        request->send(200, "text/plain", "true");
+    }
+    else
+    {
+        request->send(200, "text/plain", "false");
+    }
+}
+
 // Gerenciadores
 AsyncCallbackJsonWebHandler *handlerSetModuleStatus = new AsyncCallbackJsonWebHandler("/setModuleStatus", [](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                       {
@@ -144,3 +162,13 @@ AsyncCallbackJsonWebHandler *handlerAddModule = new AsyncCallbackJsonWebHandler(
     {
         request->send(400, "application/json", "{\"error\":\"Bad request\"}");
     }; });
+
+AsyncCallbackJsonWebHandler *handlerConfigRedMesh = new AsyncCallbackJsonWebHandler("/redMeshConfig", [](AsyncWebServerRequest *request, JsonVariant &json)
+                                                                                    {
+    JsonObject jsonObj = json.as<JsonObject>();
+    if (jsonObj.containsKey("ssid") && jsonObj.containsKey("password") && jsonObj.containsKey("port")){
+        String res=configRedMesh(jsonObj);
+        request->send(200,"application/json",res);
+        }else{
+        request->send(400, "application/json", "{\"error\":\"Bad request, ssid, password and port are required.\"}");
+    } });

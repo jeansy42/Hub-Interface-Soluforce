@@ -15,7 +15,7 @@ void receivedCallback(uint32_t from, String &msg)
 {
     if (msg == "configOk")
     {
-        Serial.printf("-->Removendo no %u da lista de atualizacao", from);
+        Serial.printf("-->Removendo no %u da lista de atualizacao\n", from);
         UpdateNodes::removeNodeToUpdate(from);
     }
     else
@@ -61,7 +61,7 @@ void nodeTimeAdjustedCallback(int32_t offset)
 // Reuseful functions
 void sendingConfigurationToNode(uint32_t nodeId)
 {
-    Serial.printf("Mandando configuração ao node %u", nodeId);
+    Serial.printf("Mandando configuração ao node %u \n", nodeId);
     String res = sendJsonResponseFromFile("/" + String(nodeId) + ".json", &filesystem);
     bool isOk = mesh.sendSingle(nodeId, res);
     if (isOk)
