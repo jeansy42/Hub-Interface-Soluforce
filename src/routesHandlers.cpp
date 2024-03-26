@@ -84,7 +84,6 @@ void handlerGetModuleFromDispositiveById(AsyncWebServerRequest *request)
         request->send(400, "application/json", "{\"error\":\"Bad request, query param moduleId and nodeId are required.\"}");
     }
 }
-
 void handlerIsConfigRedMesh(AsyncWebServerRequest *request)
 {
     if (redMeshConfigState)
@@ -96,7 +95,36 @@ void handlerIsConfigRedMesh(AsyncWebServerRequest *request)
         request->send(200, "text/plain", "false");
     }
 }
+void handlerFormatLittleFS(AsyncWebServerRequest *request)
+{
+    bool status = formatLittleFS();
+    if (status)
+    {
+        request->send(200, "text/plain", "LittleFS formatado corretamente.");
+    }
+    else
+    {
+        request->send(200, "text/plain", "Ocurreu algum erro ao tentar formatar LittleFS");
+    }
+}
 
+/* void handlerGetDoorSensorState(AsyncWebServerRequest *request)
+{
+    if (request->hasParam("action") && request->hasParam("nodeId"))
+    {
+        String action = request->getParam("action")->value();
+        String nodeId = request->getParam("nodeId")->value();
+        String res = getDoorSensorState(nodeId, action);
+        request->send(200, "application/json", res);
+    }
+    else
+    {
+        JsonDocument docRes;
+        docRes["status"] = "error";
+        docRes["msg"] = "Bad request query params nodeId and action are required.";
+        request->send(400, "application/json", docRes.as<String>());
+    }
+} */
 // Gerenciadores
 AsyncCallbackJsonWebHandler *handlerSetModuleStatus = new AsyncCallbackJsonWebHandler("/setModuleStatus", [](AsyncWebServerRequest *request, JsonVariant &json)
                                                                                       {

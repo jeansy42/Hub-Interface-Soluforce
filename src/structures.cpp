@@ -1,5 +1,4 @@
 #include <set>
-#include "structures.h"
 #include <Arduino.h>
 
 namespace UpdateNodes
@@ -16,4 +15,16 @@ namespace UpdateNodes
         nodesToUpdate.erase(nodeId);
     }
     bool needsToUpdate() { return !nodesToUpdate.empty(); }
+
+}
+
+namespace SincronizeNodesConfig
+{
+    std::set<uint32_t> nodesToSincronize;
+    void addNodesToSincronize(uint32_t nodeId)
+    {
+        nodesToSincronize.insert(nodeId);
+    }
+    void removeNodeToSincronize(const uint32_t nodeId) { nodesToSincronize.erase(nodeId); }
+    bool needsToSincronize() { return !nodesToSincronize.empty(); }
 }

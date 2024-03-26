@@ -10,6 +10,11 @@
 #include "auxiliars.h"
 #include "routesHandlers.h"
 #include "tasksManager.h"
+#include "structures.h"
+
+// Constants
+/* #define STATION_SSID "softstation"
+#define STATION_PASSWORD "soft@station#!61" */
 
 String ssid;
 String password;
@@ -17,7 +22,6 @@ uint16_t port;
 
 fs::FS filesystem = LittleFS;
 
-IPAddress myIP(0, 0, 0, 0);
 IPAddress myAPIP(0, 0, 0, 0);
 
 AsyncWebServer server(80);
@@ -25,30 +29,24 @@ AsyncEventSource events("/events");
 painlessMesh mesh;
 Scheduler hubScheduler;
 
-Task taskVerifyNodesToUpdate(TASK_SECOND * 4, TASK_FOREVER, &verifyNodesToUpdate);
-Task taskTestingEventsToBrowser(TASK_SECOND * 5, TASK_FOREVER, &testingEventsToBrowser);
-Task taskShouldReinitHub(TASK_SECOND * 5, TASK_FOREVER, &reinitHub);
-
 bool redMeshConfigState;
-String actionerMessage;
 JsonDocument globalMessages;
 JsonObject actioner = globalMessages["actioner"].to<JsonObject>();
+JsonObject doorSensor = globalMessages["doorSensor"].to<JsonObject>();
 
 void setup()
 {
   Serial.begin(115200);
-  if (!LittleFS.begin())
-  {
-    Serial.println("An Error has occurred while mounting LittleFs");
+
+  pinMode(BLINKLED, OUTPUT);
+  digitalWrite(BLINKLED, LOW);
+
+  if (!initLittleFS())
     return;
-  }
+
   createConfigMeshIfNotExists(&filesystem);
   redMeshConfigState = isRedMeshConfig();
-  /* bool status = LittleFS.format();
-  if (status)
-    Serial.println("LittleFS formatado corretamente");
-  else
-    return; */
+
   if (redMeshConfigState)
   {
     mesh.setDebugMsgTypes(ERROR | STARTUP | CONNECTION);
@@ -57,13 +55,13 @@ void setup()
     mesh.onNewConnection(&newConnectionCallback);
     mesh.onChangedConnections(&changedConnectionCallback);
     mesh.onNodeTimeAdjusted(&nodeTimeAdjustedCallback);
+    mesh.onDroppedConnection(&droppedConnectionCallBack);
     mesh.setRoot(true); // Estabelecendo o Hub como root
     mesh.setContainsRoot(true);
 
     hubScheduler.addTask(taskVerifyNodesToUpdate);
-    hubScheduler.addTask(taskTestingEventsToBrowser);
+    hubScheduler.addTask(taskValidateConfigurations);
     taskVerifyNodesToUpdate.enable();
-    taskTestingEventsToBrowser.enable();
 
     myAPIP = IPAddress(mesh.getAPIP());
     Serial.println("My AP IP is " + myAPIP.toString());
@@ -115,6 +113,9 @@ void setup()
 
   // Obtendo a informação de um modulo de determinado nó
   server.on("/getModuleFromDispositiveById", HTTP_GET, handlerGetModuleFromDispositiveById);
+
+  // Povosional para formatar LittleFS
+  server.on("/formatLittleFS", HTTP_DELETE, handlerFormatLittleFS);
 
   server.addHandler(handlerAddModule);
   server.addHandler(handlerSetModuleStatus);

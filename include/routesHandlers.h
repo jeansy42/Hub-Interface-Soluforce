@@ -11,6 +11,8 @@ void handlerGetModuleInfo(AsyncWebServerRequest *request);
 void handlerDeleteModule(AsyncWebServerRequest *request);
 void handlerGetModuleFromDispositiveById(AsyncWebServerRequest *request);
 void handlerIsConfigRedMesh(AsyncWebServerRequest *request);
+void handlerFormatLittleFS(AsyncWebServerRequest *request);
+/* void handlerGetDoorSensorState(AsyncWebServerRequest *request); */
 
 // Gerenciadores de rutas que receben json
 extern AsyncCallbackJsonWebHandler *handlerSetModuleStatus;

@@ -5,12 +5,18 @@
 #include "FS.h"
 #include "meshManager.h"
 #include "structures.h"
+#include "painlessMesh.h"
 
 extern fs::FS filesystem;
+extern painlessMesh mesh;
 extern String ssid;
 extern String password;
 extern uint16_t port;
 extern bool shouldReinitHub;
+
+IPAddress localIP(192, 168, 2, 106);
+IPAddress localGateway(192, 168, 2, 254);
+IPAddress subnet(255, 255, 255, 0);
 
 bool initLittleFS()
 {
@@ -20,6 +26,13 @@ bool initLittleFS()
         return false;
     }
     return true;
+}
+bool formatLittleFS()
+{
+    bool status = LittleFS.format();
+    if (status)
+        Serial.println("LittleFS formatado corretamente");
+    return status;
 }
 String generateUUID()
 {
@@ -68,17 +81,29 @@ bool initSD()
     Serial.printf("SD Card Size: %lluMB\n", cardSize);
     return true;
 }
-void initWiFi(const char *ssid, const char *password)
+/* bool initWiFi()
 {
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED)
+
+    WiFi.mode(WIFI_STA);
+
+    if (!WiFi.config(localIP, localGateway, subnet))
     {
-        delay(1000);
-        Serial.println("Connecting to WiFi..");
+        Serial.println("STA Failed to configure");
+        return false;
+    }
+    WiFi.begin(STATION_SSID, STATION_PASSWORD);
+
+    Serial.println("Connecting to WiFi...");
+    delay(20000);
+    if (WiFi.status() != WL_CONNECTED)
+    {
+        Serial.println("Failed to connect.");
+        return false;
     }
 
     Serial.println(WiFi.localIP());
-}
+    return true;
+} */
 
 void createNewFile(String path, fs::FS *filesystem)
 {
@@ -102,7 +127,7 @@ void createNewFile(String path, fs::FS *filesystem)
     }
     else
     {
-        Serial.printf("O arquivo %s já existe\n", path);
+        Serial.printf("O arquivo %s já existe\n", path.c_str());
     }
 }
 void createConfigMeshIfNotExists(fs::FS *filesystem)
@@ -466,3 +491,5 @@ String getModuleFromDispositiveById(String moduleId, String nodeId, fs::FS *file
     serializeJson(docRes, resString);
     return resString;
 }
+
+
